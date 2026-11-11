@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mind Bazaar Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Fredoka:wght@500;600;700&family=Figtree:wght@400;500;600;800&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a bright corner shop. An opening scene rolls a cart through the doors, then three
+   shelves in three colours (Minds, Skills, Apps) on a butter wall, with a red cart that fills up.
+   Pictures carry the page; words appear on the shelf tags and in a label card on hover.
+   The basket on the left fills up as you shop. Single light theme. */
+:root{
+  color-scheme: light;
+  --wall:#ffe55c;       /* lemon wall, top */
+  --wall2:#ffb42e;      /* mango wall, bottom */
+  --accent:#ff3d24;     /* tomato: actions and the cart */
+  --sun:#ffc022;        /* power, stars, stripes */
+  --teal:#00b8a0;
+  --pink:#ff4f9a;
+  --violet:#6a3dff;
+  --added:#17a862;      /* in the cart */
+  --glass:#ffe1d8;      /* shelf top (each shelf overrides) */
+  --lip:#ff8266;        /* shelf front (each shelf overrides) */
+  --ink:#1f1235;        /* text */
+  --dim:#5b4869;        /* secondary text */
+  --line:#ecd9bd;       /* borders */
+  --white:#ffffff;
+  --display:"Archivo Black","Arial Black",Impact,sans-serif;
+  --round:"Fredoka","Figtree",system-ui,sans-serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--wall);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.4}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+button:focus-visible,[tabindex]:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3,p{margin:0}
+svg.ic{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+.app{display:grid;grid-template-columns:280px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);height:100%}
+
+/* top bar */
+.bar{grid-column:1/-1;display:flex;align-items:center;gap:16px;background:var(--white);border-bottom:1px solid var(--line);padding:10px 20px}
+.mark{font-weight:800;font-size:21px;letter-spacing:-.02em;color:var(--accent)}
+.mark span{color:var(--ink)}
+.steps{display:flex;gap:6px;flex:1;flex-wrap:wrap}
+.step{display:flex;align-items:center;gap:7px;padding:5px 12px 5px 5px;border-radius:99px;border:1px solid var(--line);color:var(--dim);font-size:13px;font-weight:600}
+.step .n{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;background:var(--wall)}
+.step[aria-current="step"]{color:var(--ink);border-color:var(--ink)}
+.step[aria-current="step"] .n{background:var(--ink);color:#fff}
+.step.ok .n{background:var(--accent);color:#fff}
+.step[disabled]{cursor:default;opacity:.55}
+.total svg{color:var(--sun)}
+.total{display:flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border-radius:99px;padding:6px 6px 6px 12px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.total b{background:#fff;color:var(--accent);border-radius:99px;min-width:24px;height:24px;display:grid;place-items:center;font-size:12px;padding:0 6px}
+
+/* basket */
+.basket{background:var(--white);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:16px;padding:18px;overflow-y:auto}
+.cart{position:relative;height:176px;margin:0 -4px}
+.cart .load{position:absolute;left:22px;right:22px;bottom:22px;display:flex;align-items:flex-end;justify-content:center}
+.cart .load .pk{font-size:7.5px;margin-left:var(--ov,-6px);transform:rotate(var(--r,0deg));transform-origin:50% 100%}
+.cart .load .pk:first-child{margin-left:0}
+.cart .load .figure{font-size:11px}
+.cart .mesh{position:absolute;left:0;right:0;bottom:0;height:70px;clip-path:polygon(0 0,100% 0,91% 100%,9% 100%);border-top:9px solid var(--accent);
+  background:repeating-linear-gradient(90deg,rgba(255,61,36,.95) 0 1.5px,transparent 1.5px 16px),repeating-linear-gradient(0deg,rgba(255,61,36,.95) 0 1.5px,transparent 1.5px 16px),rgba(216,203,255,.18)}
+.cart .handle{position:absolute;left:18%;right:18%;bottom:64px;height:46px;border:5px solid var(--accent);border-bottom:0;border-radius:60px 60px 0 0;opacity:.35}
+.who h3{font-size:19px;font-weight:800;line-height:1.15}
+.who p{color:var(--dim);font-size:13px;margin-top:2px}
+.meter{display:grid;grid-template-columns:repeat(10,1fr);gap:3px}
+.meter i{height:12px;border-radius:3px;background:#f1ecf7;transition:background .35s}
+.meter i.on{background:linear-gradient(180deg,#ffc94d,var(--sun))}
+.level{display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;font-weight:800;font-size:14px}
+.level span{font-variant-numeric:tabular-nums}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tile{position:relative;aspect-ratio:1;border-radius:10px;background:#f6f1ff;display:grid;place-items:center}
+.tile .pk{font-size:5.4px}
+.tile.empty{background:none;border:1.5px dashed var(--line)}
+.tile button{position:absolute;right:-5px;top:-5px;width:20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:11px;opacity:0;transition:opacity .15s}
+.tile:hover button,.tile button:focus-visible{opacity:1}
+@media (hover:none){.tile button{opacity:1}}
+.cta{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+.btn{box-shadow:0 6px 16px rgba(201,61,34,0);display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--accent);color:#fff;font-weight:800;border-radius:99px;padding:11px 18px;white-space:nowrap;transition:filter .12s,transform .12s}
+.btn:hover{filter:brightness(1.08)}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{background:#f1ecf7;color:var(--dim);cursor:not-allowed;filter:none;font-weight:600;box-shadow:none}
+.btn.ghost{box-shadow:none;background:var(--white);color:var(--ink);border:1px solid var(--line);font-weight:600}
+.btn.ghost:hover{border-color:var(--dim);filter:none}
+.btn.sm{padding:7px 14px;font-size:13.5px}
+
+/* aisle */
+.aisle{overflow-y:auto;min-width:0;background:radial-gradient(60% 50% at 85% 0,rgba(255,255,255,.9),transparent 70%),radial-gradient(50% 40% at 0 100%,rgba(255,176,32,.22),transparent 70%),linear-gradient(180deg,var(--wall),var(--wall2))}
+.ask{padding:20px 24px 4px;display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center}
+.ask h1{font-size:clamp(24px,3vw,34px);font-weight:800;letter-spacing:-.02em;line-height:1.1;text-wrap:balance;margin-right:auto}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:7px;background:var(--white);border:1px solid var(--line);border-radius:99px;padding:7px 14px;font-weight:600}
+.chip:hover{border-color:var(--dim)}
+.find{display:inline-flex;align-items:center;gap:8px;background:var(--white);border:1px solid var(--line);border-radius:99px;padding:0 14px;color:var(--dim)}
+.find:focus-within{border-color:var(--accent)}
+.find input{border:0;outline:0;background:none;font:inherit;font-size:16px;color:var(--ink);padding:7px 0;width:170px}
+.nohit{color:var(--dim);padding:40px 0 70px}
+.chip[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+.shelf{padding-top:12px;transition:opacity .4s,filter .4s}
+.shelf.off{opacity:.6;pointer-events:none}
+.shelf header{display:flex;gap:10px;align-items:baseline;padding:0 24px;min-height:22px}
+.shelf header b{font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:800}
+.shelf header small{font-size:11px;color:var(--dim)}
+.shelf header em{font-style:normal;font-size:13px;color:var(--dim);margin-left:auto;text-align:right}
+.shelf header em b{font-size:13px;letter-spacing:0;text-transform:none;color:var(--ink)}
+.rack{display:flex;gap:26px;overflow-x:auto;padding:0 34px;scrollbar-width:none;scroll-behavior:smooth;
+  background:linear-gradient(180deg,transparent calc(100% - 50px),rgba(43,27,61,.10) calc(100% - 50px),var(--glass) calc(100% - 46px),var(--glass) calc(100% - 36px),var(--lip) calc(100% - 36px),var(--lip) calc(100% - 4px),rgba(43,27,61,.16) calc(100% - 4px),transparent)}
+.rack::-webkit-scrollbar{display:none}
+.rackwrap{position:relative}
+.nav{position:absolute;top:calc(50% - 44px);width:40px;height:40px;border-radius:50%;background:var(--white);color:var(--accent);box-shadow:0 4px 14px rgba(27,22,64,.25);display:grid;place-items:center;font-size:20px;z-index:2;transition:transform .15s}
+.nav:hover{transform:scale(1.1)}
+.nav.prev{left:8px}.nav.next{right:8px}
+.nav[hidden]{display:none}
+.item{flex:none;display:flex;flex-direction:column;align-items:center;cursor:pointer}
+.stand{position:relative;display:flex;align-items:flex-end;justify-content:center;height:var(--sh,150px);transition:transform .35s cubic-bezier(.2,.9,.3,1.4)}
+.item.spot .stand{transform:translateY(-10px) rotate(-2deg)}
+.item[data-item^="mind"] .stand::before{content:"";position:absolute;inset:8% 0 0;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.95),transparent);opacity:0;transition:opacity .35s}
+.item.spot .stand::before,.item.in .stand::before,.item:hover .stand::before{opacity:1}
+.item:hover .stand{transform:translateY(-6px)}
+.item.in .stand{transform:translateY(-4px)}
+.lipzone{height:50px;display:flex;align-items:center;justify-content:center;padding-top:12px}
+.tag{background:var(--white);border-radius:4px;padding:2px 8px;font-size:12px;font-weight:800;box-shadow:0 1px 2px rgba(0,0,0,.18);white-space:nowrap;font-variant-numeric:tabular-nums}
+.item.in .tag{background:var(--accent);color:#fff}
+.plus{position:absolute;right:-12px;bottom:10px;width:30px;height:30px;border-radius:50%;background:var(--white);box-shadow:0 2px 6px rgba(0,0,0,.28);display:grid;place-items:center;font-size:16px;transition:transform .15s,background .15s}
+.item:hover .plus{transform:scale(1.12)}
+.plus[aria-pressed="true"]{background:var(--accent);color:#fff}
+.match{position:absolute;left:-10px;top:4px;width:26px;height:26px;border-radius:50%;background:var(--sun);color:#3a2400;display:grid;place-items:center;font-size:14px;transform:rotate(-10deg);box-shadow:0 1px 2px rgba(0,0,0,.2);z-index:1}
+.match svg{fill:currentColor;stroke:none}
+
+/* label card shown on hover or focus */
+.tip{position:fixed;z-index:8;width:240px;background:var(--white);border-radius:12px;padding:12px 14px;box-shadow:0 10px 30px rgba(27,22,64,.22);pointer-events:none;opacity:0;transform:translateY(6px);transition:opacity .15s,transform .15s}
+.tip.on{opacity:1;transform:none}
+.tip b{display:block;font-weight:800;line-height:1.2}
+.tip p{font-size:13px;color:var(--dim);margin-top:4px}
+.tip small{display:inline-block;margin-top:8px;font-size:11px;font-weight:800;color:var(--accent)}
+
+/* ---------- characters and drawn packaging (sizes in em, so the same markup works as a thumbnail) ---------- */
+.pk{--h:#2f6fd6;position:relative;color:#fff;flex:none;font-size:16px;filter:drop-shadow(0 .35em .25em rgba(0,0,0,.22))}
+.pk svg.ic{stroke-width:2.2}
+.figure{width:9.2em;height:10.4em;display:flex;align-items:flex-end;justify-content:center}
+.figure img{display:block;max-width:100%;max-height:100%}
+.can{width:5.6em;height:7.4em;border-radius:.45em;background:linear-gradient(90deg,#8d9693,#f4f6f5 26%,#cfd5d2 62%,#868f8c)}
+.can::before,.can::after{content:"";position:absolute;left:0;right:0;height:.28em;background:rgba(0,0,0,.14)}
+.can::before{top:.45em}.can::after{bottom:.45em}
+.can .lab{position:absolute;inset:.95em 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.25em;text-align:center;padding:0 .3em;color:var(--ink);border-top:.4em solid var(--h);border-bottom:.4em solid var(--h);
+  background:linear-gradient(90deg,rgba(0,0,0,.2),transparent 22%,rgba(255,255,255,.5) 44%,transparent 68%,rgba(0,0,0,.22)),#fbf8ef}
+.can img{width:2.5em;height:2.5em;object-fit:contain}
+.can b{font-family:var(--display);font-weight:400;font-size:.6em;line-height:1.05;text-transform:uppercase}
+.pouch{width:6em;height:7.6em;border-radius:.3em .3em 1em 1em;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.3em;text-align:center;padding:1em .4em .4em;
+  background:linear-gradient(100deg,color-mix(in srgb,var(--h) 70%,#000),var(--h) 35%,color-mix(in srgb,var(--h) 78%,#fff) 52%,var(--h) 72%,color-mix(in srgb,var(--h) 75%,#000))}
+.pouch::before{content:"";position:absolute;left:0;right:0;top:0;height:.8em;border-radius:.3em .3em 0 0;background:repeating-linear-gradient(90deg,rgba(0,0,0,.22) 0 .12em,rgba(255,255,255,.12) .12em .3em)}
+.pouch i{font-size:1.9em;display:grid;background:rgba(255,255,255,.18);border-radius:50%;padding:.22em}
+.pouch .pic{background:#fff;padding:.3em}
+.pouch .pic img{width:1em;height:1em;object-fit:contain;display:block}
+.pouch b{font-family:var(--display);font-weight:400;font-size:.58em;line-height:1.05;text-transform:uppercase}
+
+/* summary sheet */
+.sheet{position:fixed;inset:0;z-index:7;background:rgba(27,22,64,.45);display:grid;place-items:center;padding:16px;overflow-y:auto}
+.sheet[hidden]{display:none}
+.card{background:var(--white);border-radius:24px;max-width:680px;width:100%;display:grid;grid-template-columns:220px minmax(0,1fr);overflow:hidden;box-shadow:0 30px 80px rgba(27,22,64,.35)}
+.card .face{background:radial-gradient(90% 70% at 50% 30%,#fff,transparent 70%),linear-gradient(180deg,var(--wall),var(--wall2));display:grid;place-items:end center;padding:20px 16px 0}
+.card .face img{width:100%;height:auto;display:block}
+.card .sum{padding:22px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.card h2{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.card h2+p{color:var(--dim);font-size:14px;margin-top:-8px}
+.card h3{font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:800;color:var(--dim);display:flex;justify-content:space-between;margin-bottom:6px}
+.cando{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;max-height:min(46vh,330px);overflow-y:auto}
+.cando li{display:flex;gap:10px;align-items:center;font-size:13.5px;line-height:1.3;color:var(--dim)}
+.cando b{display:block;color:var(--ink);font-weight:800}
+.cando .th{width:36px;height:36px;border-radius:10px;background:#f6f1ff;display:grid;place-items:center;flex:none}
+.cando .th img{max-width:26px;max-height:28px}
+.cando .th i{width:26px;height:26px;border-radius:50%;background:var(--h);color:#fff;display:grid;place-items:center;font-size:15px}
+.able{list-style:none;margin:0;padding:0 4px 0 0;display:flex;flex-direction:column;gap:10px;max-height:min(48vh,340px);overflow-y:auto}
+.able .top{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;margin-bottom:4px}
+.able .top b{font-weight:800}
+.able .top span{font-weight:800;font-variant-numeric:tabular-nums;color:var(--accent)}
+.able .meter i{height:10px}
+.able p{font-size:12px;color:var(--dim);margin-top:3px}
+.able .top em{font-style:normal;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);border:1px solid var(--line);border-radius:99px;padding:1px 7px;margin-left:8px;vertical-align:1px}
+.tile.side{outline:2px dashed #cdb48a;outline-offset:-2px;background:#fff}
+.seg{display:inline-flex;gap:0}
+.seg .chip:first-child{border-radius:99px 0 0 99px}
+.seg .chip:last-child{border-radius:0 99px 99px 0;margin-left:-2px}
+.nofit{font-size:13.5px;color:var(--dim)}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:6;background:var(--ink);color:#fff;border-radius:16px;padding:12px 12px 12px 18px;display:flex;align-items:center;gap:14px;max-width:min(560px,calc(100vw - 32px));font-size:14px;line-height:1.35;box-shadow:0 14px 34px rgba(43,27,61,.35)}
+.toast[hidden]{display:none}
+.toast .btn{box-shadow:none;border:0;flex:none}
+.able{scrollbar-width:thin;scrollbar-color:#e6d6bf transparent}
+.boost{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--dim)}
+.boost .chip{padding:3px 10px;font-size:12.5px;border-width:1.5px;color:var(--ink)}
+.boost .chip svg{color:var(--accent)}
+.more{flex:none;align-self:center;margin-bottom:56px;width:170px;min-height:104px;border:2px dashed var(--ink);border-radius:16px;background:rgba(255,255,255,.85);padding:12px;display:flex;flex-direction:column;justify-content:center;gap:6px;text-align:left;font-size:13px;line-height:1.25}
+.more span{display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-weight:800}
+.more:hover{background:#fff;border-color:var(--accent)}
+.hint{font-size:13px;color:var(--dim);margin-top:8px}
+.picks{display:flex;gap:10px;flex-wrap:wrap}
+.pick{width:64px;text-align:center;font-size:11px;font-weight:600;line-height:1.15}
+.pick .pk{font-size:6.5px;margin:0 auto 5px}
+.pick.none{width:auto;color:var(--dim);font-size:13px;font-weight:400;text-align:left}
+@media (max-width:600px){.card{grid-template-columns:1fr}.card .face{padding:12px 30% 0}}
+
+/* awake */
+.finish{padding:10px 24px 28px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:30px;align-items:end}
+.plinth{position:relative;width:280px;padding:26px 24px 0;border-radius:18px 18px 0 0;background:radial-gradient(120% 90% at 50% 0,#fff,rgba(255,255,255,0) 70%)}
+.plinth img{display:block;width:100%;height:auto;position:relative;z-index:1}
+.plinth span{display:block;height:34px;margin:-18px -24px 0;border-radius:50%/100% 100% 0 0;background:linear-gradient(180deg,var(--glass),var(--lip));box-shadow:0 10px 0 var(--lip),0 14px 12px rgba(0,0,0,.12)}
+.bag{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;padding:0 12px 14px;border-bottom:10px solid var(--lip);box-shadow:0 -4px 0 var(--glass) inset;margin-bottom:18px;min-height:40px}
+details{margin-top:14px}
+summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--dim)}
+pre{margin:8px 0 0;background:var(--ink);border-radius:12px;padding:14px;font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace;overflow-x:auto;color:#ece8ff}
+
+.fly{position:fixed;left:0;top:0;z-index:9;pointer-events:none;transform-origin:0 0}
+
+/* ===== lively theme ===== */
+h1,.who h3,.card h2,.mark,.btn,.chip,.step,.tag,.shelf header b{font-family:var(--round)}
+.bar{border-bottom:0;box-shadow:0 4px 0 var(--ink);position:relative;z-index:1}
+.mark{font-size:25px;font-weight:700;color:var(--accent)}
+.mark span{color:var(--violet)}
+.step[aria-current="step"]{border-color:var(--accent)}
+.step[aria-current="step"] .n{background:var(--accent)}
+.step.ok .n{background:var(--added)}
+.total{background:var(--ink)}
+.replay{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;color:var(--dim);font-size:16px}
+.replay[aria-pressed="false"]{color:var(--accent)}
+.replay:hover{color:var(--accent);border-color:var(--accent)}
+.aisle{background:radial-gradient(rgba(255,255,255,.6) 2.5px,transparent 3px) 0 0/28px 28px,linear-gradient(180deg,var(--wall),var(--wall2))}
+.ask{position:relative;padding-top:44px}
+.ask::before{content:"";position:absolute;left:0;right:0;top:0;height:22px;border-top:3px solid var(--ink);
+  background:conic-gradient(from -45deg at 50% 100%,var(--accent) 90deg,#0000 0) 0 0/200px 22px,conic-gradient(from -45deg at 50% 100%,var(--sun) 90deg,#0000 0) 40px 0/200px 22px,conic-gradient(from -45deg at 50% 100%,var(--teal) 90deg,#0000 0) 80px 0/200px 22px,conic-gradient(from -45deg at 50% 100%,var(--pink) 90deg,#0000 0) 120px 0/200px 22px,conic-gradient(from -45deg at 50% 100%,var(--violet) 90deg,#0000 0) 160px 0/200px 22px}
+.ask h1{font-weight:700;font-size:clamp(26px,3.2vw,38px)}
+.chip{font-weight:600;border-width:2px}
+.chip[aria-pressed="true"]{background:var(--violet);border-color:var(--violet)}
+.chip:nth-child(6n+2) svg{color:var(--accent)}.chip:nth-child(6n+3) svg{color:var(--teal)}.chip:nth-child(6n+4) svg{color:var(--violet)}.chip:nth-child(6n+5) svg{color:#e79a00}.chip:nth-child(6n+6) svg{color:var(--pink)}
+.chip[aria-pressed="true"] svg{color:#fff}
+#shelf1{--glass:#ffd2c9;--lip:#ff4b3a;--sign:#e62a14}
+#shelf2{--glass:#ddd2ff;--lip:#7a52ff;--sign:#5a2fe6}
+#shelf3{--glass:#c4f6ec;--lip:#00b8a0;--sign:#008a78}
+.shelf header{align-items:center;margin-bottom:4px}
+.shelf header b{background:var(--sign);color:#fff;padding:4px 14px;border-radius:99px;font-size:12px;letter-spacing:.06em;font-weight:600;box-shadow:0 3px 0 rgba(43,27,61,.18)}
+.shelf header small{font-weight:800;color:var(--sign)}
+.item[data-item^="mind"] .stand::before{inset:20% 4% 2%;border-radius:50%;background:var(--spot,#ffd1dc);opacity:1;transition:transform .35s}
+.item[data-item^="mind"]:nth-child(6n+1){--spot:#ff8fb8}.item[data-item^="mind"]:nth-child(6n+2){--spot:#ffffff}.item[data-item^="mind"]:nth-child(6n+3){--spot:#6fe3cf}.item[data-item^="mind"]:nth-child(6n+4){--spot:#b39bff}.item[data-item^="mind"]:nth-child(6n+5){--spot:#ff9a5c}.item[data-item^="mind"]:nth-child(6n+6){--spot:#7cc4ff}
+.item.spot .stand::before,.item:hover .stand::before,.item.in .stand::before{transform:scale(1.1)}
+.tag{font-weight:600;font-size:12.5px;border-radius:6px;padding:2px 9px}
+.item.in .tag{background:var(--added)}
+.plus{color:var(--accent)}
+.plus[aria-pressed="true"]{background:var(--added);color:#fff}
+.nav{color:var(--accent)}
+.basket{border-right:0;box-shadow:inset -4px 0 0 var(--ink);background:#fff}
+.tile{background:#fff0b8}
+.meter i{background:#f3e6cf}
+.meter i.on{background:linear-gradient(180deg,#ffd21f,#ff8a00)}
+.btn{background:var(--accent);border-radius:16px;box-shadow:0 5px 0 #b3200c;font-weight:600;font-size:16px}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 #b3200c}
+.btn.ghost{box-shadow:0 3px 0 var(--line);border-width:2px;font-size:14px}
+.btn[disabled]{box-shadow:none;background:#f6ead8}
+.who h3{font-weight:700;font-size:21px}
+.card h2{font-weight:700}
+.card .face{background:radial-gradient(90% 70% at 50% 30%,rgba(255,255,255,.9),transparent 70%),linear-gradient(180deg,#ffe55c,#ff8a3d)}
+.cando .th{background:#fff1d6}
+.tip small{color:var(--accent)}
+.plinth{background:none}
+.plinth::before{content:"";position:absolute;inset:-30px -30px 0;border-radius:50%;background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.75) 0 12deg,transparent 12deg 24deg);opacity:.75;z-index:0;aspect-ratio:1;inset:-10px -30px auto;animation:spin 40s linear infinite}
+.plinth span{background:linear-gradient(180deg,#ffd2c9,#ff4b3a);box-shadow:0 10px 0 #ff4b3a,0 14px 12px rgba(0,0,0,.15)}
+.bag{border-bottom-color:#7a52ff;box-shadow:0 -4px 0 #ddd2ff inset}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes breathe{50%{transform:scaleY(1.03) scaleX(.985)}}
+.shelf:not(.off) .figure img,.cart .figure img,.plinth img{animation:breathe 3.4s ease-in-out infinite;transform-origin:50% 100%}
+.item:nth-child(3n+2) .figure img{animation-delay:-1.1s}.item:nth-child(3n) .figure img{animation-delay:-2.3s}
+.bit{position:fixed;left:0;top:0;width:9px;height:13px;border-radius:2px;z-index:10;pointer-events:none}
+
+/* ===== opening scene ===== */
+.intro{position:fixed;inset:0;z-index:20;overflow:hidden;background:radial-gradient(rgba(255,255,255,.6) 2.5px,transparent 3px) 0 0/28px 28px,linear-gradient(180deg,var(--wall),var(--wall2));transition:transform .7s cubic-bezier(.7,0,.2,1)}
+.intro.bye{transform:translateY(-105%)}
+.irow{position:absolute;left:0;right:0;height:26vh;display:flex;align-items:flex-end;border-bottom:18px solid var(--c);box-shadow:0 8px 0 rgba(43,27,61,.12)}
+.irow:nth-child(1){top:1vh;--c:#ff4b3a}.irow:nth-child(2){top:31vh;--c:#7a52ff}.irow:nth-child(3){top:61vh;--c:#00b8a0}
+.itrack{display:flex;align-items:flex-end;gap:26px;padding-right:26px;animation:roll 22s linear infinite;flex:none}
+.irow:nth-child(2) .itrack{animation-direction:reverse;animation-duration:26s}
+.itrack > img{height:21vh;width:auto;filter:drop-shadow(0 6px 4px rgba(0,0,0,.2))}
+.itrack .pk{font-size:calc(21vh / 7.8)}
+@keyframes roll{to{transform:translateX(-50%)}}
+.aview{position:absolute;inset:0;animation:pushin 1.4s 1.3s cubic-bezier(.2,.7,.2,1) both}
+@keyframes pushin{from{transform:scale(1.25)}to{transform:scale(1)}}
+.front{position:absolute;inset:0;transform-origin:50% 62%;animation:enter 1.1s 1.5s cubic-bezier(.6,0,.9,.4) forwards}
+@keyframes enter{80%{opacity:1}to{transform:scale(9);opacity:0;visibility:hidden}}
+.hole{position:absolute;left:50%;bottom:14vh;width:min(48vw,440px);height:min(50vh,380px);transform:translateX(-50%);box-shadow:0 0 0 200vmax #ff5a3a;border-radius:16px 16px 0 0;overflow:hidden;outline:10px solid #fff;outline-offset:0}
+.hole i{position:absolute;top:0;bottom:0;width:50%;background:linear-gradient(120deg,rgba(214,241,255,.96),rgba(170,220,250,.96));border:6px solid #fff;animation:slide 0.7s 0.8s cubic-bezier(.6,0,.3,1) forwards}
+.hole i:first-child{left:0;--to:-102%}.hole i:last-child{right:0;--to:102%}
+@keyframes slide{to{transform:translateX(var(--to))}}
+.awning{position:absolute;left:0;right:0;top:0;height:13vh;background:repeating-linear-gradient(90deg,#fff 0 46px,#ff3d2e 46px 92px);-webkit-mask:radial-gradient(23px at 23px 100%,#0000 98%,#000) 0 0/46px 100%;mask:radial-gradient(23px at 23px 100%,#0000 98%,#000) 0 0/46px 100%;filter:drop-shadow(0 6px 0 rgba(43,27,61,.18))}
+.sign{position:absolute;left:50%;top:15vh;transform:translateX(-50%) rotate(-2deg);background:var(--sun);color:var(--ink);font:700 clamp(30px,6vw,64px)/1 var(--round);padding:.25em .6em;border-radius:.4em;box-shadow:0 8px 0 #d98a00;white-space:nowrap;letter-spacing:.02em}
+.sign span{color:var(--accent)}
+.win{position:absolute;bottom:22vh;width:16vw;height:26vh;border-radius:14px;background:linear-gradient(160deg,#fff27a,#ffc21f);border:8px solid #fff;max-width:200px}
+.win.l{left:6vw}.win.r{right:6vw}
+.pave{position:absolute;left:0;right:0;bottom:0;height:14vh;background:#f3dfc4;border-top:8px solid #e2c9a6}
+.trolley{position:absolute;left:50%;bottom:4vh;width:240px;height:186px;margin-left:-120px;animation:rollin 1.2s cubic-bezier(.2,.8,.3,1) both,jog .5s 1.2s ease-in-out infinite}
+@keyframes rollin{from{transform:translateX(-75vw) rotate(-4deg)}}
+@keyframes jog{50%{translate:0 -4px}}
+.trolley svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.hop{position:absolute;left:50%;bottom:60px;width:96px;margin-left:-48px;opacity:0;animation:hop .8s cubic-bezier(.3,.6,.4,1) forwards;animation-delay:var(--d)}
+@keyframes hop{0%{opacity:1;transform:translate(var(--sx),-56vh) scale(1.2) rotate(-20deg)}55%{opacity:1;transform:translate(calc(var(--sx) * .35),-62vh) scale(1.1)}100%{opacity:1;transform:translate(var(--ex),0) scale(1) rotate(var(--rot))}}
+.hook{position:absolute;left:0;right:0;top:9vh;text-align:center;animation:pop .6s 2.9s cubic-bezier(.2,1.6,.4,1) both;pointer-events:none}
+.hook h2{display:inline-block;margin:0;background:#fff;color:var(--ink);font:700 clamp(28px,5vw,56px)/1.05 var(--round);padding:.35em .7em;border-radius:.5em;box-shadow:0 8px 0 var(--ink);rotate:-2deg}
+.hook h2 em{font-style:normal;color:var(--accent)}
+@keyframes pop{from{transform:scale(0);opacity:0}}
+.intro.wait *{animation-play-state:paused!important}
+.enter{position:absolute;left:50%;bottom:calc(14vh + min(25vh,190px) - 34px);transform:translateX(-50%);z-index:2;display:none;align-items:center;gap:10px;background:var(--accent);color:#fff;font:700 clamp(18px,2.4vw,26px) var(--round);padding:16px 28px;border-radius:20px;box-shadow:0 7px 0 #c93d22;white-space:nowrap}
+.enter:active{transform:translateX(-50%) translateY(5px);box-shadow:0 2px 0 #c93d22}
+.intro.wait .enter{display:inline-flex}
+.skip{position:absolute;right:18px;bottom:18px;background:var(--ink);color:#fff;border-radius:99px;padding:8px 16px;font:600 14px var(--round);z-index:2}
+
+@media (max-width:820px){
+  html,body{height:auto}
+  .app{grid-template-columns:1fr;height:auto}
+  .basket{border-right:0;border-top:1px solid var(--line);order:3}
+  .aisle{overflow:visible}
+  .bar{flex-wrap:wrap}
+  .finish{grid-template-columns:1fr}
+  .plinth{width:200px}
+  .tiles{grid-template-columns:repeat(6,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <div class="mark">Mind<span>Mart</span></div>
+    <nav class="steps" id="steps" aria-label="Steps"></nav>
+    <button class="replay" id="sound" aria-label="Sound" title="Sound on or off" aria-pressed="true"></button>
+    <button class="replay" id="replay" aria-label="Replay the opening scene" title="Replay the opening scene"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 108-8H6M9 1L6 4l3 3"/></svg></button>
+    <div class="total" id="total" aria-live="polite"></div>
+  </header>
+  <aside class="basket" id="basket" aria-label="Your basket"></aside>
+  <main class="aisle" id="aisle"></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<div class="sheet" id="sheet" hidden></div>
+<div id="introHost"></div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+/* ---------- catalog. Minds: all 19 one-click Minds listed at hellominds.ai/bazaar/minds.
+   Skills: the 29 featured at /bazaar/skills. Apps: the first 39 featured at /bazaar/apps plus Superior Trade.
+   A skill or app is a "best match" when it shares a tag with the chosen Mind; the tags are hand-written here. Images are official Minds art
+   from the design harness (character cutouts and icons), resized.
+   Replace these arrays with Minds API / builder API responses. ---------- */
+const ICON={
+  calendar:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/>',
+  chart:'<path d="M4 19h16M7 16v-5M12 16V6M17 16V9"/>',
+  spark:'<path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>',
+  heart:'<path d="M12 20s-7-4.5-7-10a4 4 0 017-2.5A4 4 0 0119 10c0 5.500-7 10-7 10z"/>',
+  pen:'<path d="M4 20l4-1L19 8l-3-3L5 16l-1 4z"/>',
+  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+  chat:'<path d="M4 5h16v11H9l-5 4V5z"/>',
+  layers:'<path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/>',
+  ticket:'<path d="M3 8a2 2 0 002-2h14a2 2 0 002 2v2a2 2 0 000 4v2a2 2 0 00-2 2H5a2 2 0 00-2-2v-2a2 2 0 000-4V8z"/><path d="M14 7v10"/>',
+  mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 7 9-7"/>',
+  doc:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
+  table:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/>',
+  code:'<path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/>',
+  search:'<circle cx="10" cy="10" r="6"/><path d="M15 15l5 5"/>',
+  book:'<path d="M4 5c3-1 6-1 8 1 2-2 5-2 8-1v14c-3-1-6-1-8 1-2-2-5-2-8-1V5z"/><path d="M12 6v14"/>',
+  people:'<circle cx="9" cy="9" r="3"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="8" r="2.5"/><path d="M16.5 14c2.8 0 4.5 1.8 4.5 4"/>',
+  image:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5-8 8"/>',
+  coin:'<circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.500-3-1.500-1.700 0-3 .8-3 2.100 0 2.900 6 1.400 6 4.200 0 1.300-1.300 2.200-3 2.200-1.500 0-2.700-.600-3.200-1.700M12 6v12"/>',
+  grid:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
+  star:'<path d="M12 3l2.7 5.6 6.100.800-4.500 4.300 1.100 6.100L12 16.900 6.600 19.800l1.100-6.100L3.200 9.400l6.100-.800L12 3z"/>',
+  bolt:'<path d="M13 3L5 13h6l-1 8 8-10h-6l1-8z"/>',
+  arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>',
+  sound:'<path d="M4 10v4h3l5 4V6l-5 4H4z"/><path d="M16 9c1.3 1.5 1.3 4.5 0 6M18.5 6.5c3 3 3 8 0 11"/>',
+  mute:'<path d="M4 10v4h3l5 4V6l-5 4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>',
+  play:'<path d="M7 4l13 8-13 8z" fill="currentColor" stroke="none"/>',
+  left:'<path d="M14 6l-6 6 6 6"/>',
+  right:'<path d="M10 6l6 6-6 6"/>',
+  x:'<path d="M6 6l12 12M18 6L6 18"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  check:'<path d="M5 12l5 5 9-10"/>'
+};
+const ic=n=>`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
+
+const M=(id,name,file,goal,slo,line,tags,extra)=>Object.assign({id,name,fig:`img/${file}.webp`,goal,slo,line,tags,base:32},extra||{});
+const MINDS=[
+ M('general','General Assistant','mind-general-assistant','organise','I do tasks. You save time.','Handle bookings, reminders, and daily life tasks.',["org", "mail", "travel"],{custom:1}),
+ M('sales','Sales Mind','mind-sales','business','I open doors. You close deals.','Design, run, and improve your sales motion across channels.',["sales", "mail"],{custom:1}),
+ M('bizz','Bizz Mind','mind-bizz','business','I read numbers. You read rooms.','Audit ideas, crunch numbers, and find the fastest path to growth.',["money", "data", "sales"]),
+ M('trader','Superior Trader','mind-superior-trader','business','I read charts. You keep gains.','Designs and validates automated trading systems on-chain.',["crypto", "money"]),
+ M('game','Game Designer','mind-game-designer','build','I design play. You ship fun.','Turns game concepts into polished, balanced, player-ready systems and economies.',["build", "design"]),
+ M('email','Email Manager','mind-email-manager','organise','I clear inboxes. You clear minds.','Reach inbox zero and keep it there with smart cleanup.',["mail"]),
+ M('scrum','Scrum Master','mind-scrum-master','build','I run sprints. You ship work.','Run sprints, manage backlog, and flag blockers in Notion.',["pm", "build"]),
+ M('fitness','Fitness Coach','mind-fitness-coach','live','I count reps. You feel strong.','Schedule workouts, track goals, and stay on track.',["health"]),
+ M('chef','Personal Chef','mind-personal-chef','live','I plan meals. You just eat.','Plan meals, track nutrition, and optimise your grocery shopping.',["food"]),
+ M('recruiter','Recruiter','mind-recruiter','business','I find talent. You build teams.','Find the right candidates, benchmark the market, and close roles faster.',["hr"]),
+ M('football','Football Mind','mind-football','live','I scout. You score.','Football event focused sports companion and tournament analyst.',["events"]),
+ M('decision','Decision Mind','mind-decision','organise','I weigh data. You make calls.','A strategic thinking partner that helps you make better calls.',["data", "docs"]),
+ M('content','Content Mind','mind-content','create','I draft ideas. You go viral.','Your brand-voice partner that turns ideas into publish-ready content.',["content", "social"]),
+ M('research','Research Mind','mind-research','create','I find facts. You lead.','Your private analyst that turns information into clear, sourced briefs.',["research", "docs"]),
+ M('product','Product Builder Mind','mind-product-builder','build','I code. You launch.','Turns your idea into something buildable and ready to ship.',["build", "design"]),
+ M('learning','Learning Coach Mind','mind-learning-coach','create','I guide. You grow.','Your personal tutor that builds a learning plan tuned to you.',["learn"]),
+ M('followup','Follow-Up Mind','mind-follow-up','organise','I track. You close.','Tracks who you owe and drafts timely, tone-right follow-ups.',["mail", "sales"]),
+ M('gtm','GTM Mind','mind-gtm','business','I pitch. You win.','Your go-to-market partner for positioning, messaging & launch plans.',["sales", "content", "social"]),
+ M('chief','Chief of Staff Mind','mind-chief-of-staff','organise','I align. You lead.','Turns your tasks and meetings into one clear, moving plan.',["org", "pm", "docs"]),
+ M('custom','Custom Mind','master-mind','any','You decide. I become.','Start from a blank Mind and shape it yourself.',["web", "docs"],{base:20,blank:1})
+];
+const GOALS=[['all','All','grid'],['organise','Organise','calendar'],['business','Grow a business','chart'],['build','Build and ship','layers'],['create','Create and learn','pen'],['live','Live well','heart']];
+const SKILLS=[
+ {"id": "minds-page", "img": "img/icon-minds-page.webp", "name": "Minds Page", "short": "Minds Page", "tags": ["web", "content"], "hue": "#d6336c", "p": 9, "n": "4,619", "official": 1, "line": "Create temporary webpages for minds, no coding needed."},
+ {"id": "slides-pdf", "img": "img/icon-professional-slide-pdf.webp", "name": "Professional Slide and PDF Creation", "short": "Slides & PDF", "tags": ["docs", "sales"], "hue": "#2f6fd6", "p": 10, "n": "5,828", "official": 1, "line": "Generate professional presentations in PowerPoint, PDF, and Google Slides."},
+ {"id": "travel-planner", "img": "img/icon-travel-planner.webp", "name": "Travel Planner", "short": "Travel Planner", "tags": ["travel"], "hue": "#c98200", "p": 9, "n": "2,191", "official": 1, "line": "Plan any trip with lodging, activities, and transport."},
+ {"id": "unsubscribe-wizard", "img": "img/icon-email-unsubscribe-wizard.webp", "name": "Email Unsubscribe Wizard", "short": "Unsubscribe Wizard", "tags": ["mail"], "hue": "#0f7a6c", "p": 8, "n": "", "official": 1, "line": "Scan Gmail and unsubscribe from unwanted mailing lists."},
+ {"id": "genealogy", "img": "img/icon-agentic-genealogy-research.webp", "name": "Agentic Genealogy Research", "short": "Genealogy", "tags": ["research"], "hue": "#8a5a2b", "p": 8, "n": "1,087", "official": 1, "line": "Trace your family history with verified two-source research."},
+ {"id": "womens-health", "img": "img/icon-womens-health-tracker.webp", "name": "Women’s Health Tracker", "short": "Women’s Health", "tags": ["health"], "hue": "#7a4fd6", "p": 8, "n": "", "official": 1, "line": "Log symptoms, predict your next period, and track your cycle."},
+ {"id": "nutrition-tracker", "img": "img/icon-nutrition-tracker.webp", "name": "Nutrition Tracker", "short": "Nutrition Tracker", "tags": ["food", "health"], "hue": "#e2571c", "p": 8, "n": "", "official": 1, "line": "Log meals and track macros, gaps, and nutrition targets."},
+ {"id": "schoolwork", "img": "img/icon-schoolwork-companion.webp", "name": "Schoolwork Companion", "short": "Schoolwork", "tags": ["learn"], "hue": "#1f8a8a", "p": 9, "n": "", "official": 1, "line": "Build a personalised curriculum, mark responses, and track progress."},
+ {"id": "finance-buddy", "img": "img/icon-finance-buddy.webp", "name": "Finance Buddy", "short": "Finance Buddy", "tags": ["money", "mail"], "hue": "#d6336c", "p": 9, "n": "", "official": 1, "line": "Scan your inbox and categorise every charge and subscription."},
+ {"id": "meal-planner", "img": "img/icon-meal-planner.webp", "name": "Meal Planner", "short": "Meal Planner", "tags": ["food"], "hue": "#2f6fd6", "p": 9, "n": "", "official": 1, "line": "Turn your kitchen inventory into a 7-day meal plan."},
+ {"id": "trend-hunter", "img": "img/icon-trend-hunter.webp", "name": "Trend Hunter", "short": "Trend Hunter", "tags": ["content", "social", "research"], "hue": "#c98200", "p": 9, "n": "", "official": 1, "line": "Spot emerging topics and buzzwords before they go mainstream."},
+ {"id": "deal-flow-scout", "img": "img/icon-event-deal-flow-scout.webp", "name": "Event and Deal Flow Scout", "short": "Deal Flow Scout", "tags": ["sales", "events"], "hue": "#0f7a6c", "p": 9, "n": "", "official": 1, "line": "Monitor pipelines and flag incoming deals and opportunities."},
+ {"id": "humanizer", "img": "img/icon-humanizer.webp", "name": "Humanizer", "short": "Humanizer", "tags": ["content"], "hue": "#8a5a2b", "p": 8, "n": "", "official": 1, "line": "Rewrite AI-generated text to sound naturally human."},
+ {"id": "scrum-master", "img": "img/icon-scrum-master.webp", "name": "Scrum Master", "short": "Scrum Master", "tags": ["pm", "build"], "hue": "#7a4fd6", "p": 9, "n": "", "official": 1, "line": "Run sprints, manage the backlog, and flag blockers in Notion."},
+ {"id": "video-production", "img": "img/icon-minds-video.webp", "name": "Hi-Fidelity Video Production", "short": "Video Production", "tags": ["content", "video"], "hue": "#e2571c", "p": 10, "n": "", "official": 1, "line": "Direct short cinematic video clips with words, not buttons."},
+ {"id": "pet-health", "img": "img/icon-pet-health-tracker.webp", "name": "Pet Health Tracker", "short": "Pet Health", "tags": ["pets"], "hue": "#1f8a8a", "p": 8, "n": "", "official": 1, "line": "Log pet health, track trends, and flag anything abnormal."},
+ {"id": "retirement-simulator", "img": "img/icon-retirement-simulator.webp", "name": "Retirement Simulator", "short": "Retirement Simulator", "tags": ["money"], "hue": "#d6336c", "p": 8, "n": "", "official": 1, "line": "Calculate your retirement number and build a savings tracker."},
+ {"id": "autonomous-soul", "img": "img/icon-passive-autonomous-soul.webp", "name": "Passive Autonomous Soul", "short": "Autonomous Soul", "tags": ["core"], "hue": "#2f6fd6", "p": 8, "n": "", "official": 1, "line": "Complete tasks within scope and never act beyond it."},
+ {"id": "etsy-strategist", "img": "img/icon-etsy-shop-strategist.webp", "name": "Etsy Shop Strategist", "short": "Etsy Strategist", "tags": ["sales", "content"], "hue": "#c98200", "p": 8, "n": "", "official": 1, "line": "Research keywords and write SEO-optimised Etsy listings."},
+ {"id": "email-task-wizard", "img": "img/icon-email-task-wizard.webp", "name": "Email Task Wizard", "short": "Email Task Wizard", "tags": ["mail", "org"], "hue": "#0f7a6c", "p": 9, "n": "", "official": 1, "line": "Scan emails every 4 hours and extract actionable tasks."},
+ {"id": "plant-care", "img": "img/icon-plant-care.webp", "name": "Plant Care", "short": "Plant Care", "tags": ["home"], "hue": "#8a5a2b", "p": 8, "n": "", "official": 1, "line": "Identify plants, diagnose stress, and set watering reminders."},
+ {"id": "hobby-guide", "img": "img/icon-hobby-guide.webp", "name": "Hobby Guide", "short": "Hobby Guide", "tags": ["learn"], "hue": "#7a4fd6", "p": 8, "n": "", "official": 1, "line": "Build a practice plan and guide 15-minute hobby sessions."},
+ {"id": "hosting-soil", "img": "img/icon-minds-hosting-and-soil.webp", "name": "Minds Hosting and Soil", "short": "Hosting & Soil", "tags": ["web", "build"], "hue": "#e2571c", "p": 9, "n": "", "official": 0, "line": "Create and deploy custom web pages and dashboards."},
+ {"id": "sales-negotiation", "img": "img/icon-sales-negotiation.webp", "name": "Sales and Negotiation", "short": "Sales & Negotiation", "tags": ["sales"], "hue": "#1f8a8a", "p": 10, "n": "4,884", "official": 1, "line": "Close deals faster with direct, numbers-first sales and negotiation."},
+ {"id": "qa-tester", "img": "img/icon-qa-tester.webp", "name": "QA Tester", "short": "QA Tester", "tags": ["build"], "hue": "#d6336c", "p": 8, "n": "288", "official": 1, "line": "Build full test plans and run regression cycles with pass or fail criteria."},
+ {"id": "hk-price-hunter", "img": "img/icon-hk-price-hunter.webp", "name": "Hong Kong Consumer Food and Materials Price Hunter", "short": "HK Price Hunter", "tags": ["food", "money"], "hue": "#2f6fd6", "p": 8, "n": "", "official": 1, "line": "Map grocery prices across Hong Kong chains, find arbitrage by location."},
+ {"id": "fortune-seer", "img": "img/icon-fortune-seer.webp", "name": "Fortune Seer", "short": "Fortune Seer", "tags": ["fun"], "hue": "#c98200", "p": 8, "n": "", "official": 1, "line": "Get daily horoscopes, astrology readings, and tarot draws."},
+ {"id": "recruiter-research", "img": "img/icon-linkedin-recruiter-research.webp", "name": "LinkedIn Recruiter Research", "short": "Recruiter Research", "tags": ["hr", "sales"], "hue": "#0f7a6c", "p": 9, "n": "", "official": 0, "line": "Search and research LinkedIn jobs, people, profiles, and companies."},
+ {"id": "mybestie", "img": "img/icon-my-bestie.webp", "name": "MyBestie", "short": "MyBestie", "tags": ["health"], "hue": "#8a5a2b", "p": 8, "n": "", "official": 1, "line": "Run daily mood checks and guided grounding rituals."}
+];
+const APPS=[
+ {"id": "google-calendar", "name": "Google Calendar", "icon": "calendar", "tags": ["org"], "hue": "#26262b", "official": 1, "line": "Create, update, and schedule your calendar events.", "n": ""},
+ {"id": "x", "name": "X", "icon": "chat", "tags": ["social"], "hue": "#5e6ad2", "official": 1, "line": "Post, read, and manage your X activity.", "n": "521"},
+ {"id": "notion", "name": "Notion", "icon": "doc", "tags": ["docs", "pm"], "hue": "#1a66c9", "official": 1, "line": "Organise your notes, pages, and databases in Notion.", "n": ""},
+ {"id": "gmail", "name": "Gmail", "icon": "mail", "tags": ["mail"], "hue": "#0a9a9a", "official": 1, "line": "Send, read, label, and search your Gmail.", "n": ""},
+ {"id": "slack", "name": "Slack", "icon": "chat", "tags": ["chat"], "hue": "#285f9e", "official": 1, "line": "Send messages, search channels, and manage your Slack workspace.", "n": ""},
+ {"id": "google-sheets", "name": "Google Sheets", "icon": "table", "tags": ["data"], "hue": "#a37508", "official": 1, "line": "Read, write, and update your Google Sheets data.", "n": ""},
+ {"id": "github", "name": "GitHub", "icon": "code", "tags": ["build"], "hue": "#b0355e", "official": 1, "line": "Create issues, pull requests, and track your repos.", "n": ""},
+ {"id": "stripe", "name": "Stripe", "icon": "coin", "tags": ["money", "sales"], "hue": "#3d7a2e", "official": 1, "line": "Retrieve charges, payments, and manage your customers.", "n": ""},
+ {"id": "instagram", "name": "Instagram", "icon": "chat", "tags": ["social"], "hue": "#7a4fd6", "official": 1, "line": "Publish posts and retrieve your Instagram data.", "n": ""},
+ {"id": "linkedin", "name": "LinkedIn", "icon": "chat", "tags": ["social", "hr"], "hue": "#c2501a", "official": 1, "line": "Draft and publish posts to your LinkedIn profile.", "n": ""},
+ {"id": "outlook", "name": "Outlook", "icon": "mail", "tags": ["mail"], "hue": "#26262b", "official": 1, "line": "Read, send, and organise your Outlook inbox.", "n": ""},
+ {"id": "canva", "name": "Canva", "icon": "pen", "tags": ["design", "content"], "hue": "#5e6ad2", "official": 1, "line": "Create and manage your Canva designs and assets.", "n": ""},
+ {"id": "figma", "name": "Figma", "icon": "pen", "tags": ["design"], "hue": "#1a66c9", "official": 1, "line": "Read files and post comments in Figma.", "n": ""},
+ {"id": "trello", "name": "Trello", "icon": "layers", "tags": ["pm"], "hue": "#0a9a9a", "official": 1, "line": "Create cards and manage tasks across Trello boards.", "n": ""},
+ {"id": "supabase", "name": "Supabase", "icon": "code", "tags": ["build", "data"], "hue": "#285f9e", "official": 1, "line": "Read, insert, and update your Supabase records.", "n": ""},
+ {"id": "monday", "name": "Monday", "icon": "layers", "tags": ["pm"], "hue": "#a37508", "official": 1, "line": "Create and update items across your Monday boards.", "n": ""},
+ {"id": "hubspot", "name": "HubSpot", "icon": "coin", "tags": ["sales"], "hue": "#b0355e", "official": 1, "line": "Manage deals, contacts, and activity in HubSpot.", "n": ""},
+ {"id": "strava", "name": "Strava", "icon": "heart", "tags": ["health"], "hue": "#3d7a2e", "official": 1, "line": "Pull your Strava activity data and performance trends.", "n": ""},
+ {"id": "tiktok", "name": "TikTok", "icon": "chat", "tags": ["social"], "hue": "#7a4fd6", "official": 1, "line": "Publish videos and retrieve your TikTok account data.", "n": ""},
+ {"id": "google-slides", "name": "Google Slides", "icon": "doc", "tags": ["docs"], "hue": "#c2501a", "official": 1, "line": "Create slides and update your Google Slides decks.", "n": ""},
+ {"id": "linear", "name": "Linear", "icon": "layers", "tags": ["pm", "build"], "hue": "#26262b", "official": 1, "line": "Create, update, and track issues in Linear.", "n": "122"},
+ {"id": "google-tasks", "name": "Google Tasks", "icon": "calendar", "tags": ["org"], "hue": "#5e6ad2", "official": 1, "line": "Create, update, and complete your Google Tasks.", "n": ""},
+ {"id": "tavily", "name": "Tavily", "icon": "search", "tags": ["research", "web"], "hue": "#1a66c9", "official": 1, "line": "Search, extract, and map the web in real time.", "n": ""},
+ {"id": "google-docs", "name": "Google Docs", "icon": "doc", "tags": ["docs"], "hue": "#0a9a9a", "official": 1, "line": "Create, edit, and format your Google Docs.", "n": ""},
+ {"id": "google-drive", "name": "Google Drive", "icon": "doc", "tags": ["docs"], "hue": "#285f9e", "official": 1, "line": "Upload, search, and organise your Google Drive files.", "n": ""},
+ {"id": "asana", "name": "Asana", "icon": "layers", "tags": ["pm"], "hue": "#a37508", "official": 1, "line": "Create, update, and track tasks and projects in Asana.", "n": ""},
+ {"id": "airtable", "name": "Airtable", "icon": "table", "tags": ["data"], "hue": "#b0355e", "official": 1, "line": "Read, create, update, and filter your Airtable records.", "n": ""},
+ {"id": "pieverse", "name": "Pieverse", "icon": "chart", "tags": ["crypto"], "hue": "#3d7a2e", "official": 0, "line": "Query and interact with your Pieverse assets on-chain.", "n": ""},
+ {"id": "google-photos", "name": "Google Photos", "icon": "image", "tags": ["photos"], "hue": "#7a4fd6", "official": 1, "line": "Search, organise into albums, and share your Google Photos.", "n": ""},
+ {"id": "gmail-read-only", "name": "Gmail [Read Only]", "icon": "mail", "tags": ["mail"], "hue": "#c2501a", "official": 1, "line": "Read your Gmail messages, threads, and labels without making changes.", "n": ""},
+ {"id": "google-calendar-read-only", "name": "Google Calendar [Read Only]", "icon": "calendar", "tags": ["org"], "hue": "#26262b", "official": 1, "line": "Read your Google Calendar events and check availability.", "n": ""},
+ {"id": "minds-auth", "name": "Minds Auth", "icon": "globe", "tags": ["web"], "hue": "#5e6ad2", "official": 1, "line": "Authenticate and access 100+ services with a single app.", "n": ""},
+ {"id": "wikidata", "name": "Wikidata", "icon": "search", "tags": ["research"], "hue": "#1a66c9", "official": 1, "line": "Run SPARQL queries against Wikidata to retrieve structured facts.", "n": ""},
+ {"id": "ticketmaster-discovery", "name": "Ticketmaster Discovery", "icon": "ticket", "tags": ["events"], "hue": "#0a9a9a", "official": 1, "line": "Search live events, concerts, and sports fixtures on Ticketmaster.", "n": "49"},
+ {"id": "polymarket", "name": "Polymarket", "icon": "coin", "tags": ["money", "events"], "hue": "#285f9e", "official": 1, "line": "Search markets, explore events, and pull prediction market data.", "n": ""},
+ {"id": "goeddy", "name": "GoEddy", "icon": "book", "tags": ["learn"], "hue": "#a37508", "official": 0, "line": "Create lessons, track progress, and run interactive learning sessions.", "n": ""},
+ {"id": "laguna-network", "name": "Laguna Network", "icon": "chart", "tags": ["crypto"], "hue": "#b0355e", "official": 1, "line": "Query and execute operations on the Laguna Network.", "n": "112"},
+ {"id": "browserbase", "name": "BrowserBase", "icon": "code", "tags": ["build", "web"], "hue": "#3d7a2e", "official": 0, "line": "Inspect pages, debug JavaScript, and audit performance on any URL.", "n": ""},
+ {"id": "linkedin-recruiter-suite", "name": "LinkedIn Recruiter Suite", "icon": "people", "tags": ["hr"], "hue": "#7a4fd6", "official": 0, "line": "Search LinkedIn jobs, people, and companies without credentials.", "n": "3,624", "img": "img/icon-linkedin-recruiter-research.webp"},
+ {"id": "superior-trade", "name": "Superior Trade", "icon": "chart", "tags": ["crypto", "money"], "hue": "#c2501a", "official": 0, "line": "Monitor positions, analyse market data, and manage your trades.", "n": "1,391"}
+];
+const byId=(l,id)=>l.find(x=>x.id===id);
+
+/* ---------- pictures ---------- */
+const pkMind=m=>`<div class="pk figure"><img src="${m.fig}" alt=""></div>`;
+const pkSkill=s=>`<div class="pk can" style="--h:${s.hue}"><span class="lab"><img src="${s.img}" alt=""><b>${s.short}</b></span></div>`;
+const pkApp=a=>`<div class="pk pouch" style="--h:${a.hue}">${a.img?`<i class="pic"><img src="${a.img}" alt=""></i>`:`<i>${ic(a.icon)}</i>`}<b>${a.name}</b></div>`;
+
+/* ---------- state ---------- */
+const S={step:1,goal:'all',spot:0,mind:null,skills:[],apps:[],awake:false,review:false,touched:false,q:'',fitOnly:true};
+const calm=matchMedia('(prefers-reduced-motion:reduce)').matches;
+let timer=null;
+const mind=()=>S.mind&&byId(MINDS,S.mind);
+const visible=()=>MINDS.filter(m=>S.goal==='all'||m.goal===S.goal||m.blank);
+/* An item fits when it shares a topic with the Mind, or with an ability the Mind has gained from a fitting skill
+   (one level only, so the shelf grows with the build without ending up matching everything). */
+const core=(m,x)=>x.tags.some(t=>m.tags.includes(t));
+const grown=m=>{const g=[];S.skills.forEach(id=>{const x=byId(SKILLS,id);if(core(m,x))x.tags.forEach(t=>{if(!g.includes(t))g.push(t)})});return g};
+const fits=(m,x)=>{if(!m)return false;if(core(m,x))return true;const g=grown(m);return x.tags.some(t=>g.includes(t))};
+const skillPts=id=>{const x=byId(SKILLS,id);return x.p+(fits(mind(),x)?4:0)};
+const appPts=id=>fits(mind(),byId(APPS,id))?5:3;
+function power(){const m=mind();if(!m)return 0;return Math.min(100,m.base+S.skills.reduce((t,id)=>t+skillPts(id),0)+S.apps.reduce((t,id)=>t+appPts(id),0))}
+const levelName=p=>p===0?'Empty':p<45?'Spark':p<60?'Capable':p<80?'Strong':'Fully powered';
+const hit=x=>!S.q||(x.name+' '+x.line).toLowerCase().includes(S.q.toLowerCase());
+const inCart=x=>S.skills.includes(x.id)||S.apps.includes(x.id);
+const anyFit=list=>list.some(x=>fits(mind(),x));
+/* by default a shelf shows only what fits the chosen Mind (plus anything already in the cart); a search looks through everything */
+const sortFor=list=>list.filter(hit).filter(x=>!S.fitOnly||S.q||!anyFit(list)||fits(mind(),x)||inCart(x)).sort((a,b)=>fits(mind(),b)-fits(mind(),a));
+const count=()=>(S.mind?1:0)+S.skills.length+S.apps.length;
+
+/* ---------- top bar ---------- */
+function renderBar(){
+  document.getElementById('steps').innerHTML=['Mind','Skills','Apps'].map((n,i)=>{
+    const k=i+1,cur=!S.awake&&S.step===k,ok=S.awake||S.step>k,locked=(!S.mind&&k>1)||S.awake;
+    return `<button class="step ${ok?'ok':''}" data-go="${k}" ${cur?'aria-current="step"':''} ${locked?'disabled':''}><span class="n">${ok?ic('check'):k}</span>${n}</button>`}).join('');
+  document.getElementById('total').innerHTML=`${ic('bolt')}<span aria-label="Power ${power()}">${power()}</span><b aria-label="${count()} items">${count()}</b>`;
+}
+
+/* ---------- basket ---------- */
+function renderBasket(){
+  const m=mind(),p=power(),on=Math.round(p/10),extras=S.skills.length+S.apps.length;
+  const tile=(kind,x,pk)=>`<div class="tile ${fits(m,x)?'':'side'}" title="${x.name}${fits(m,x)?'':' (side '+kind+')'}">${pk}<button data-drop-${kind}="${x.id}" aria-label="Remove ${x.name}">${ic('x')}</button></div>`;
+  const tiles=S.skills.map(id=>{const s=byId(SKILLS,id);return tile('skill',s,pkSkill(s))}).concat(S.apps.map(id=>{const a=byId(APPS,id);return tile('app',a,pkApp(a))}));
+  while(tiles.length<4)tiles.push('<div class="tile empty"></div>');
+  const next=S.step===1?['2','Add skills']:S.step===2?['3','Add apps']:null;
+  const cta=S.awake?`<button class="btn ghost" data-go="reset">Build another Mind</button>`
+    :`<button class="btn" data-go="review" ${m?'':'disabled'}>${m?ic('bolt')+'Awaken '+m.name:'Pick a Mind first'}</button>
+      ${m&&next?`<button class="btn ghost sm" data-go="${next[0]}">${next[1]}${ic('arrow')}</button>`:''}`;
+  document.getElementById('basket').innerHTML=`
+    <div class="cart" id="cart"><div class="handle"></div>
+      <div class="load" style="--ov:${extras>5?-24:extras>3?-14:-5}px">${m?pkMind(m):''}${S.skills.map(id=>pkSkill(byId(SKILLS,id))).concat(S.apps.map(id=>pkApp(byId(APPS,id)))).slice(0,7).map((h,i)=>h.replace('style="','style="--r:'+(i%2?5:-4)+'deg;')).join('')}</div>
+      <div class="mesh"></div></div>
+    <div class="who"><h3>${m?m.name:'Your basket is empty'}</h3><p>${m?m.slo:'Take a Mind off the top shelf.'}</p></div>
+    <div><div class="meter" role="img" aria-label="Power ${p} of 100">${Array.from({length:10},(_,i)=>`<i class="${i<on?'on':''}"></i>`).join('')}</div>
+      <div class="level">${levelName(p)}<span>${p}</span></div></div>
+    <div class="tiles" aria-label="Skills and apps in the basket">${tiles.join('')}</div>
+    <div class="cta">${cta}</div>`;
+}
+
+/* ---------- aisle ---------- */
+function fitToggle(list,word){
+  const m=mind(),n=list.filter(x=>fits(m,x)).length;
+  if(!n)return `<span class="nofit">Nothing is made for ${m.name} here yet, so this is the full shelf.</span>`;
+  return `<span class="seg" role="group" aria-label="Which ${word} to show"><button class="chip" data-fit="1" aria-pressed="${S.fitOnly}">${ic('star')}Fits ${m.name} · ${n}</button><button class="chip" data-fit="0" aria-pressed="${!S.fitOnly}">All ${word} · ${list.length}</button></span>`;
+}
+function ask(){
+  const m=mind();
+  if(S.awake)return `<div class="ask"><h1>${m.name} is awake.</h1></div>`;
+  if(S.step===1)return `<div class="ask"><h1>What do you want to do?</h1>
+    <div class="row" role="group" aria-label="Goal">${GOALS.map(([id,t,i])=>`<button class="chip" data-goal="${id}" aria-pressed="${S.goal===id}">${ic(i)}${t}</button>`).join('')}</div></div>`;
+  if(S.step===2)return `<div class="ask"><h1>Equip ${m.name}?</h1>
+    <div class="row">${fitToggle(SKILLS,'skills')}<label class="find">${ic('search')}<input id="q" type="search" placeholder="Search skills" aria-label="Search skills" value="${S.q}"></label>${anyFit(SKILLS)?`<button class="chip" data-all>${ic('plus')}Add all that fit</button>`:''}</div></div>`;
+  return `<div class="ask"><h1>Give ${m.name} app access?</h1>
+    <div class="row">${fitToggle(APPS,'apps')}<label class="find">${ic('search')}<input id="q" type="search" placeholder="Search apps" aria-label="Search apps" value="${S.q}"></label></div></div>`;
+}
+function item(kind,x,o){
+  return `<div class="item ${o.spot?'spot':''} ${o.on?'in':''}" data-item="${kind}:${x.id}">
+    <div class="stand" style="--sh:${kind==='mind'?184:138}px">${o.match?`<span class="match" title="Best match">${ic('star')}</span>`:''}${o.pk}
+      <button class="plus" data-add-${kind}="${x.id}" aria-pressed="${o.on}" aria-label="${o.on?'Remove':'Add'} ${x.name}">${ic(o.on?'check':'plus')}</button></div>
+    <div class="lipzone"><span class="tag">${o.tag}</span></div></div>`;
+}
+const caption=m=>`<b>${m.name}</b> · ${m.slo}`;
+const nohit='<p class="nohit">Nothing matches that search.</p>';
+const seeAll=(list,word)=>S.fitOnly&&!S.q&&anyFit(list)?`<button class="more" data-fit="0"><b>${list.filter(x=>fits(mind(),x)).every(inCart)?'That is everything made for '+mind().name+'.':'Want something else?'}</b><span>See all ${list.length} ${word}${ic('arrow')}</span></button>`:'';
+const rackSkills=()=>sortFor(SKILLS).map(x=>item('skill',x,{pk:pkSkill(x),on:S.skills.includes(x.id),match:fits(mind(),x),tag:`+${skillPts(x.id)}`})).join('')+seeAll(SKILLS,'skills')||nohit;
+const rackApps=()=>sortFor(APPS).map(x=>item('app',x,{pk:pkApp(x),on:S.apps.includes(x.id),match:fits(mind(),x),tag:`+${appPts(x.id)}`})).join('')+seeAll(APPS,'apps')||nohit;
+const wrap=(id,html)=>`<div class="rackwrap"><button class="nav prev" data-nav="-1" aria-label="Scroll left" hidden>${ic('left')}</button><div class="rack" id="${id}">${html}</div><button class="nav next" data-nav="1" aria-label="Scroll right" hidden>${ic('right')}</button></div>`;
+function shelves(){
+  const vis=visible(),sp=vis[S.spot]||vis[0];
+  return `
+  <section class="shelf ${S.step===1?'':'off'}" id="shelf1"><header><b>One-click Minds</b><small>${vis.length}</small><em id="cap">${S.step===1?caption(sp):''}</em></header>
+    ${wrap('rack1',vis.map((x,i)=>item('mind',x,{pk:pkMind(x),on:S.mind===x.id,spot:S.step===1&&i===S.spot,tag:x.name})).join(''))}</section>
+  <section class="shelf ${S.step===2?'':'off'}" id="shelf2"><header><b>Skills</b><small>${SKILLS.length} featured</small></header>${wrap('rack2',rackSkills())}</section>
+  <section class="shelf ${S.step===3?'':'off'}" id="shelf3"><header><b>Apps</b><small>${APPS.length} featured</small></header>${wrap('rack3',rackApps())}</section>`;
+}
+function payload(){const m=mind();return JSON.stringify({template:m.id,name:m.name,skills:S.skills,apps:S.apps},null,2)}
+function awakeView(){
+  const m=mind();
+  return `<div class="finish"><div class="plinth"><img src="${m.fig}" alt="${m.name}"><span></span></div><div>
+    <div class="bag">${S.skills.map(id=>pkSkill(byId(SKILLS,id))).join('')}${S.apps.map(id=>pkApp(byId(APPS,id))).join('')}</div>
+    <div class="row"><button class="btn" data-copy>Copy order</button><button class="btn ghost" data-go="reset">Build another Mind</button></div>
+    <details><summary>Order for the builder API (placeholder fields, nothing is sent)</summary><pre id="payload">${payload()}</pre></details></div></div>`;
+}
+/* ability bars for the summary. Scores are illustrative: a Mind scores 5 in its own areas,
+   each matching skill adds 2 and each matching app adds 1; a skill or app can also open a new area. */
+const AB={org:'Scheduling and reminders',mail:'Inbox handling',travel:'Trip planning',sales:'Selling and deals',money:'Money tracking',data:'Number crunching',crypto:'On-chain trading',build:'Building and testing',design:'Design work',pm:'Project tracking',health:'Health and fitness',food:'Meals and nutrition',hr:'Hiring',events:'Events and fixtures',docs:'Docs and slides',content:'Content creation',video:'Video creation',social:'Social posting',research:'Research',learn:'Teaching and learning',web:'Web pages',chat:'Team chat',photos:'Photo sorting',pets:'Pet care',home:'Home and plants',fun:'Fun and fortunes'};
+function abilities(){
+  const m=mind(),rows={};
+  const add=(tag,own,extra,src)=>{if(!AB[tag])return;const r=rows[tag];if(r){r.score+=extra;if(!r.src.includes(src))r.src.push(src)}else rows[tag]={tag,score:own,src:[src]}};
+  m.tags.forEach(t=>add(t,5,0,m.name));
+  S.skills.forEach(id=>{const x=byId(SKILLS,id);x.tags.forEach(t=>add(t,4,2,x.short))});
+  S.apps.forEach(id=>{const x=byId(APPS,id);x.tags.forEach(t=>add(t,2,1,x.name))});
+  return Object.values(rows).map(r=>Object.assign(r,{score:Math.min(10,r.score),side:!m.tags.includes(r.tag)&&!grown(m).includes(r.tag)})).sort((a,b)=>b.score-a.score).slice(0,6);
+}
+function renderSheet(){
+  const el=document.getElementById('sheet'),m=mind();
+  el.hidden=!S.review;if(!S.review){el.innerHTML='';return}
+  const p=power(),on=Math.round(p/10);
+  const rows=abilities();
+  const boost=r=>{if(r.score>=10)return '';
+    const c=SKILLS.filter(x=>x.tags.includes(r.tag)&&!S.skills.includes(x.id)).map(x=>['skill',x]).concat(APPS.filter(x=>x.tags.includes(r.tag)&&!S.apps.includes(x.id)).map(x=>['app',x])).slice(0,3);
+    return c.length?`<div class="boost"><span>Boost with</span>${c.map(([k,x])=>`<button class="chip" data-boost-${k}="${x.id}">${ic('plus')}${x.short||x.name}</button>`).join('')}</div>`:''};
+  el.innerHTML=`<div class="card" role="dialog" aria-modal="true" aria-labelledby="sumTitle">
+    <div class="face"><img src="${m.fig}" alt=""></div>
+    <div class="sum"><h2 id="sumTitle">Awaken ${m.name}?</h2>
+      <div><h3><span>What ${m.name} can do</span><span>out of 10</span></h3>
+        <ul class="able">${rows.map(r=>`<li><div class="top"><b>${AB[r.tag]}${r.side?'<em>side</em>':''}</b><span>${r.score}/10</span></div>
+          <div class="meter" role="img" aria-label="${AB[r.tag]}: ${r.score} out of 10">${Array.from({length:10},(_,i)=>`<i class="${i<r.score?'on':''}"></i>`).join('')}</div>
+          <p>${r.src.join(' + ')}</p>${boost(r)}</li>`).join('')}</ul>
+        ${S.skills.length||S.apps.length?'':'<p class="hint">No skills or apps yet. Add some to raise these bars.</p>'}</div>
+      <div><h3><span>Power</span><span>${levelName(p)} · ${p}</span></h3><div class="meter">${Array.from({length:10},(_,i)=>`<i class="${i<on?'on':''}"></i>`).join('')}</div></div>
+      <div class="row"><button class="btn" data-go="awake" id="confirm">${ic('bolt')}Awaken now</button><button class="btn ghost" data-go="back">Keep shopping</button></div>
+    </div></div>`;
+  document.getElementById('confirm').focus();
+}
+function render(keepScroll){
+  const racks=[...document.querySelectorAll('.rack')].map(r=>r.scrollLeft);
+  hideTip();renderBar();renderBasket();
+  document.getElementById('aisle').innerHTML=ask()+(S.awake?awakeView():shelves());
+  if(keepScroll)document.querySelectorAll('.rack').forEach((r,i)=>{r.style.scrollBehavior='auto';r.scrollLeft=racks[i]||0;r.style.scrollBehavior=''});
+  if(S.step===1&&!S.awake)startAuto();else stopAuto();
+  arrows();renderSheet();
+}
+
+/* ---------- step 1 slideshow ---------- */
+function spotlight(i,user){
+  const vis=visible();S.spot=(i+vis.length)%vis.length;
+  if(user){S.touched=true;stopAuto()}
+  const rack=document.getElementById('rack1');if(!rack)return;
+  const items=[...rack.children];
+  items.forEach((el,k)=>el.classList.toggle('spot',k===S.spot));
+  const el=items[S.spot];
+  if(!user)rack.scrollLeft=el.offsetLeft-rack.offsetLeft-(rack.clientWidth-el.offsetWidth)/2;
+  document.getElementById('cap').innerHTML=caption(vis[S.spot]);
+}
+function arrows(){
+  document.querySelectorAll('.rackwrap').forEach(w=>{const r=w.querySelector('.rack'),max=r.scrollWidth-r.clientWidth;
+    w.querySelector('.prev').hidden=r.scrollLeft<4;w.querySelector('.next').hidden=max<4||r.scrollLeft>max-4});
+}
+function startAuto(){stopAuto();if(calm||S.touched||S.step!==1||S.awake)return;timer=setInterval(()=>spotlight(S.spot+1,false),2400)}
+function stopAuto(){clearInterval(timer);timer=null}
+
+/* ---------- label card ---------- */
+const tip=document.getElementById('tip');
+function showTip(el){
+  const [kind,id]=el.dataset.item.split(':'),x=byId(kind==='mind'?MINDS:kind==='skill'?SKILLS:APPS,id);
+  tip.innerHTML=`<b>${x.name}</b><p>${x.line}</p>${kind==='mind'?(x.custom?'<small>Customizable</small>':''):`<small>${x.n?'Equipped '+x.n+' times':x.official?'Official':'Community'}</small>`}`;
+  const r=el.querySelector('.stand').getBoundingClientRect(),w=240,h=tip.offsetHeight;
+  let left=Math.max(8,Math.min(innerWidth-w-8,r.left+r.width/2-w/2)),top=r.top-h-10;
+  if(top<8||kind==='mind')top=r.bottom+58;
+  tip.style.left=left+'px';tip.style.top=top+'px';tip.classList.add('on');
+}
+function hideTip(){tip.classList.remove('on')}
+
+/* ---------- sound: everything is synthesised in the browser, there are no audio files ---------- */
+let AC=null,OUT=null,MUSIC=null,muted=false;
+try{muted=localStorage.getItem('mindmart-mute')==='1'}catch(_){}
+function audio(){
+  if(muted)return null;
+  try{
+    if(!AC){AC=new (window.AudioContext||window.webkitAudioContext)();OUT=AC.createGain();OUT.gain.value=.9;OUT.connect(AC.destination)}
+    if(AC.state==='suspended')AC.resume();
+    return AC;
+  }catch(_){return null}
+}
+const hz=m=>440*Math.pow(2,(m-69)/12);
+function tone(m,t,d,type,v,to,dest){
+  const o=AC.createOscillator(),g=AC.createGain();
+  o.type=type||'triangle';o.frequency.setValueAtTime(hz(m),t);
+  if(to!=null)o.frequency.exponentialRampToValueAtTime(hz(to),t+d);
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v||.12,t+.015);g.gain.exponentialRampToValueAtTime(.0001,t+d);
+  o.connect(g);g.connect(dest||OUT);o.start(t);o.stop(t+d+.05);
+}
+function sfx(kind,n){
+  if(!audio())return;const t=AC.currentTime+.01;
+  if(kind==='mind'){tone(52,t,.2,'sine',.25,64);tone(79,t+.13,.12,'triangle',.14);tone(84,t+.24,.22,'triangle',.14)}
+  else if(kind==='skill'||kind==='app'){               /* power-up: a rising sweep under a quick arpeggio, a step higher with each item */
+    const base=(kind==='app'?67:60)+Math.min(n||0,10);
+    tone(base-12,t,.42,'sawtooth',.05,base+12);
+    [0,4,7,12].forEach((k,i)=>tone(base+k,t+i*.065,.13,'square',.06));
+    tone(base+16,t+.27,.3,'triangle',.1);
+  }
+  else if(kind==='drop'){tone(69,t,.16,'sine',.12,57)}
+  else if(kind==='awake'){[60,64,67,72,76].forEach((m,i)=>tone(m,t+i*.085,.2,'triangle',.13));[72,76,79,84].forEach(m=>tone(m,t+.48,1.1,'triangle',.09));tone(48,t+.48,1.1,'sine',.16)}
+}
+function music(){
+  if(!audio())return;stopMusic();
+  MUSIC=AC.createGain();MUSIC.gain.value=.8;MUSIC.connect(OUT);
+  const t0=AC.currentTime+.05,step=.21;
+  [72,76,79,76, 81,79,76,79, 84,null,81,79, 76,79,84,null, 86,84,81,84, 88].forEach((m,i)=>{if(m)tone(m,t0+i*step,.2,'triangle',.11,null,MUSIC)});
+  [48,53,55,48,53,55].forEach((m,i)=>{tone(m,t0+i*4*step,.5,'sine',.16,null,MUSIC);tone(m+12,t0+i*4*step+2*step,.18,'square',.03,null,MUSIC)});
+  for(let i=0;i<21;i+=2)tone(108,t0+i*step,.03,'square',.012,null,MUSIC);
+  [72,76,79,84,88].forEach(m=>tone(m,t0+21*step,.9,'triangle',.07,null,MUSIC));tone(48,t0+21*step,.9,'sine',.16,null,MUSIC);
+}
+function stopMusic(){if(MUSIC&&AC){try{MUSIC.gain.setTargetAtTime(0,AC.currentTime,.05)}catch(_){ }MUSIC=null}}
+function paintSound(){const b=document.getElementById('sound');b.innerHTML=ic(muted?'mute':'sound');b.setAttribute('aria-pressed',String(!muted))}
+
+/* ---------- notice with undo ---------- */
+let toastTimer=null,undoFn=null;
+function toast(html,undo){
+  const el=document.getElementById('toast');undoFn=undo;
+  el.innerHTML=`<span>${html}</span><button class="btn ghost sm" data-undo>Undo</button>`;el.hidden=false;
+  clearTimeout(toastTimer);toastTimer=setTimeout(hideToast,6500);
+}
+function hideToast(){clearTimeout(toastTimer);const el=document.getElementById('toast');if(el)el.hidden=true;undoFn=null}
+function undoLast(){const f=undoFn;hideToast();if(f){sfx('drop');f()}}
+
+/* ---------- confetti ---------- */
+const BITS=['#ff3d24','#ffffff','#00b8a0','#ff4f9a','#6a3dff','#1e90ff'];
+function confetti(x,y,n,spread){
+  if(calm||!document.body.animate)return;
+  for(let i=0;i<n;i++){
+    const b=document.createElement('i');b.className='bit';b.style.background=BITS[i%BITS.length];document.body.appendChild(b);
+    const dx=(Math.random()-.5)*spread,dy=-Math.random()*spread*.7-20,r=(Math.random()-.5)*900;
+    b.animate([{transform:`translate(${x}px,${y}px) rotate(0)`,opacity:1},{transform:`translate(${x+dx*.7}px,${y+dy}px) rotate(${r*.6}deg)`,opacity:1,offset:.45},{transform:`translate(${x+dx}px,${y+dy+spread*.9}px) rotate(${r}deg)`,opacity:0}],
+      {duration:900+Math.random()*700,easing:'cubic-bezier(.2,.6,.4,1)'}).onfinish=()=>b.remove();
+  }
+}
+
+/* ---------- opening scene ---------- */
+const CART_SVG=`<svg viewBox="0 0 240 186" aria-hidden="true"><path d="M8 22h30l14 26" fill="none" stroke="#2b1b3d" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><path d="M50 48h180l-18 82H68z" fill="rgba(255,61,36,.25)" stroke="#ff3d24" stroke-width="8" stroke-linejoin="round"/><path d="M56 76h168M62 103h156M88 48l8 82M126 48l2 82M164 48l-4 82M200 48l-10 82" stroke="#ff3d24" stroke-width="4" opacity=".85"/><path d="M68 130l8 22h124" fill="none" stroke="#2b1b3d" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="92" cy="168" r="14" fill="#2b1b3d"/><circle cx="92" cy="168" r="5" fill="#ffc022"/><circle cx="192" cy="168" r="14" fill="#2b1b3d"/><circle cx="192" cy="168" r="5" fill="#ffc022"/></svg>`;
+let introTimer=null;
+function endIntro(){
+  clearTimeout(introTimer);stopMusic();const el=document.getElementById('intro');if(!el)return;
+  el.classList.add('bye');setTimeout(()=>{el.remove()},750);
+}
+function startIntro(){
+  const el=document.getElementById('intro');if(!el)return;
+  el.classList.remove('wait');music();
+  introTimer=setTimeout(endIntro,5600);
+}
+function playIntro(now){
+  if(calm)return;
+  const figs=MINDS.map(m=>`<img src="${m.fig}" alt="">`);
+  const cans=SKILLS.slice(0,10).map(pkSkill).concat(APPS.slice(0,8).map(pkApp));
+  const row=list=>`<div class="irow"><div class="itrack">${list.join('')}${list.join('')}</div></div>`;
+  const hops=[['-34vw','-52px','-8deg',2.3,1],['30vw','46px','7deg',2.55,3],['-12vw','-6px','2deg',2.8,4],['38vw','-30px','-5deg',3.05,12],['-40vw','26px','6deg',3.3,14]]
+    .map(([sx,ex,rot,d,i])=>`<img class="hop" src="${MINDS[i].fig}" alt="" style="--sx:${sx};--ex:${ex};--rot:${rot};--d:${d}s">`).join('');
+  document.getElementById('introHost').innerHTML=`<div class="intro wait" id="intro">
+    <div class="aview">${row(figs.slice(0,10))}${row(cans)}${row(figs.slice(10))}</div>
+    <div class="front"><div class="hole"><i></i><i></i></div><div class="win l"></div><div class="win r"></div><div class="awning"></div><div class="sign">MIND <span>MART</span></div><div class="pave"></div></div>
+    <div class="trolley">${hops}${CART_SVG}</div>
+    <div class="hook"><h2>Pick a Mind. <em>Power it up.</em></h2></div>
+    <button class="enter" id="enter">${ic('play')}Open the shop</button>
+    <button class="skip" id="skip">Skip</button></div>`;
+  document.getElementById('intro').addEventListener('click',e=>{const el=e.currentTarget;
+    if(el.classList.contains('wait')){if(e.target.closest('#enter'))startIntro();else if(e.target.closest('#skip'))endIntro();return}
+    endIntro()});
+  if(now)startIntro();
+}
+
+/* ---------- fly to basket ---------- */
+function fly(srcEl){
+  if(calm||!srcEl||!document.body.animate)return;
+  const a=srcEl.getBoundingClientRect(),ghost=srcEl.cloneNode(true);
+  confetti(a.left+a.width/2,a.top+a.height/2,12,180);
+  requestAnimationFrame(()=>{
+    const t=document.querySelector('#cart .mesh');if(!t)return;
+    const b=t.getBoundingClientRect(),w=document.createElement('div');
+    w.className='fly';w.appendChild(ghost);document.body.appendChild(w);
+    const s=.45,bx=b.left+b.width/2-a.width*s/2,by=b.top-a.height*s*.4;
+    w.animate([
+      {transform:`translate(${a.left}px,${a.top}px) scale(1) rotate(0)`,opacity:1},
+      {transform:`translate(${(a.left+bx)/2}px,${Math.min(a.top,by)-90}px) scale(${(1+s)/2}) rotate(-14deg)`,opacity:1,offset:.55},
+      {transform:`translate(${bx}px,${by}px) scale(${s}) rotate(0)`,opacity:.9}
+    ],{duration:650,easing:'cubic-bezier(.3,.1,.2,1)'}).onfinish=()=>w.remove();
+  });
+}
+function go(to){
+  if(to==='reset')Object.assign(S,{step:1,goal:'all',spot:0,mind:null,skills:[],apps:[],awake:false,review:false,touched:false,q:'',fitOnly:true});
+  else if(to==='review'){if(!S.mind)return;S.review=true;renderSheet();return}
+  else if(to==='back'){S.review=false;renderSheet();return}
+  else if(to==='awake'){if(!S.mind)return;S.review=false;S.awake=true;sfx('awake');setTimeout(()=>{confetti(innerWidth*.35,innerHeight*.35,50,520);confetti(innerWidth*.7,innerHeight*.3,50,520)},60)}
+  else{const k=+to;if(k>1&&!S.mind)return;S.step=k;S.awake=false;S.q=''}
+  render();
+  const sh=document.getElementById('shelf'+S.step),aisle=document.getElementById('aisle');
+  if(S.awake||S.step===1)aisle.scrollTop=0;
+  else if(sh&&sh.offsetTop+sh.offsetHeight>aisle.scrollTop+aisle.clientHeight)aisle.scrollTop=sh.offsetTop+sh.offsetHeight-aisle.clientHeight+16;
+}
+function toggle(list,id,btn){
+  const i=list.indexOf(id);
+  if(i>=0){list.splice(i,1);sfx('drop');render(true);return}
+  list.push(id);sfx(list===S.skills?'skill':'app',list.length);
+  const isSkill=list===S.skills,x=byId(isSkill?SKILLS:APPS,id);
+  if(!fits(mind(),x))toast(`<b>${x.short||x.name}</b> is outside ${mind().name}’s speciality. It still works, as a side ${isSkill?'skill':'app'} with a smaller boost.`,()=>{const k=list.indexOf(id);if(k>=0)list.splice(k,1);render(true)});else hideToast();fly(btn.closest('.stand').querySelector('.pk'));render(true);
+}
+
+document.addEventListener('click',e=>{
+  if(e.target.closest('#intro'))return;
+  let t=e.target.closest('button');
+  if(t&&t.id==='replay'){playIntro(true);return}
+  if(t&&t.id==='sound'){muted=!muted;try{localStorage.setItem('mindmart-mute',muted?'1':'0')}catch(_){ }if(muted)stopMusic();paintSound();if(!muted)sfx('mind');return}
+  if(!t){const it=e.target.closest('.item');if(it)t=it.querySelector('.plus')}   /* clicking the item itself works like its + */
+  if(!t||t.disabled)return;const d=t.dataset;
+  if(d.nav){const r=t.parentElement.querySelector('.rack');if(r.id==='rack1'){S.touched=true;stopAuto()}r.scrollBy({left:+d.nav*r.clientWidth*.7,behavior:calm?'auto':'smooth'});return}
+  if(d.fit){S.fitOnly=d.fit==='1';render();return}
+  if('undo' in d){undoLast();return}
+  if(d.go)go(d.go);
+  else if(d.goal){S.goal=d.goal;S.spot=0;S.touched=true;render();document.getElementById('rack1').scrollLeft=0}
+  else if(d.addMind){
+    S.touched=true;stopAuto();
+    if(S.mind===d.addMind){S.mind=null;sfx('drop');render(true);return}
+    sfx('mind');
+    S.mind=d.addMind;S.spot=Math.max(0,visible().findIndex(m=>m.id===d.addMind));
+    fly(t.closest('.stand').querySelector('.pk'));render(true);
+  }
+  else if(d.boostSkill||d.boostApp){const list=d.boostSkill?S.skills:S.apps,id=d.boostSkill||d.boostApp;if(!list.includes(id)){list.push(id);sfx(d.boostSkill?'skill':'app',list.length)}render(true)}
+  else if(d.addSkill)toggle(S.skills,d.addSkill,t);
+  else if(d.addApp)toggle(S.apps,d.addApp,t);
+  else if(d.dropSkill){S.skills=S.skills.filter(x=>x!==d.dropSkill);sfx('drop');render(true)}
+  else if(d.dropApp){S.apps=S.apps.filter(x=>x!==d.dropApp);sfx('drop');render(true)}
+  else if('all' in d){SKILLS.filter(x=>fits(mind(),x)).forEach(x=>{if(!S.skills.includes(x.id))S.skills.push(x.id)});sfx('skill',S.skills.length);render(true)}
+  else if('copy' in d){
+    const ok=()=>{t.textContent='Copied';setTimeout(()=>{t.textContent='Copy order'},1600)};
+    const pick=()=>{document.querySelector('details').open=true;const r=document.createRange();r.selectNodeContents(document.getElementById('payload'));const s=getSelection();s.removeAllRanges();s.addRange(r);t.textContent='Selected. Press copy'};
+    try{navigator.clipboard.writeText(payload()).then(ok,pick)}catch(_){pick()}
+  }
+});
+function point(e){
+  const el=e.target.closest&&e.target.closest('.item');
+  if(!el){hideTip();return}
+  if(el.dataset.item.startsWith('mind:')&&S.step===1){const i=[...el.parentElement.children].indexOf(el);if(i!==S.spot||timer)spotlight(i,true)}
+  showTip(el);
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.review)go('back')});
+document.getElementById('sheet').addEventListener('click',e=>{if(e.target.id==='sheet')go('back')});
+document.addEventListener('input',e=>{if(e.target.id!=='q')return;S.q=e.target.value;const r=document.getElementById(S.step===2?'rack2':'rack3');r.innerHTML=S.step===2?rackSkills():rackApps();r.scrollLeft=0;arrows()});
+document.addEventListener('pointerover',point);
+document.addEventListener('focusin',point);
+document.addEventListener('scroll',()=>{hideTip();arrows()},true);
+addEventListener('resize',arrows);
+render();
+paintSound();
+playIntro(false);
+</script>
+</body>
+</html>
